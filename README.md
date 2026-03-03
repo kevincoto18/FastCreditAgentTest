@@ -1,4 +1,4 @@
-# FastCredit: Agentic AI Loan Underwriter
+# FastCredit: Agentic AI Loan Underwriter (n8n)
 
 This repository contains an automated system designed to process loan applications from email intake to final decisioning. The agent uses **RAG (Retrieval-Augmented Generation)** to ensure all decisions align with internal company policies stored in a **Qdrant** vector database.
 
