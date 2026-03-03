@@ -1,0 +1,941 @@
+{
+  "name": "FastCredit_Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "subject:(\"Loan Application\" OR \"Credit Request\")"
+        },
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "3afd8292-576b-439f-ab1c-94425df107db",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "e2LIOY5YBW7ORXYz",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "message": "=<div style=\"font-family: Arial, sans-serif; color: #333; max-width: 600px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px;\">\n  <h2 style=\"color: #ef6c00;\">Action Required: Missing Attachment</h2>\n  <p>Hello,</p>\n  <p>We received your email regarding a <b>Credit Request</b>, but we couldn't find the required PDF application form attached to your message.</p>\n  \n  <div style=\"background-color: #fff3e0; padding: 15px; border-left: 4px solid #ef6c00; margin: 20px 0;\">\n    <strong>Issue:</strong> No PDF document detected. <br>\n    <strong>Next Step:</strong> Please reply to this email or send a new one including your <b>Loan Application PDF</b> so our AI system can process it immediately.\n  </div>\n  \n  <p>If you have any questions, feel free to contact our support team.</p>\n  <p>Best regards,<br><b>FastCredit Automation Team</b></p>\n  <hr style=\"border: 0; border-top: 1px solid #eee;\">\n  <p style=\"font-size: 12px; color: #888;\">Note: Our system only processes requests that include a valid PDF attachment.</p>\n</div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        96
+      ],
+      "id": "a88f3d36-d120-4f95-a814-1ef00d164261",
+      "name": "Reply Missing Files",
+      "webhookId": "aa2f28d8-2f6a-440d-a71a-04f847f787c0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "e2LIOY5YBW7ORXYz",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are the FastCredit Lending Officer. Your goal is to process loan applications with 100% accuracy.\n\nPROCESS:\n\nExtract applicant data from the input.\n\nRetrieve \"Internal Lending Policies\" using the 'policy_retriever' tool.\n\nCompare data against policies:\n\nAge >= 18.\n\nEmployment >= 12 months.\n\nLoan <= 3x Monthly Income.\n\nFlags: Loan > $15,000 or existing debts.\n\nDecision: 'APPROVED' if all rules are met. 'FLAGGED_FOR_REVIEW' if flags are triggered or data is ambiguous.\n\n5. Set status to 'MISSING_DATA' if the extracted information is incomplete, key fields (income, age, employment) are missing from the PDF, or the document content is not a loan application.\n6. Provide a concise English justification explaining exactly what data is missing.\n\nOUTPUT FORMAT:\nYou must respond ONLY with a valid JSON object. Do not include conversational text outside the JSON.\n\nJSON Schema:\n{\n\"status\": \"APPROVED\" | \"FLAGGED_FOR_REVIEW\",\n\"full_analysis\": \"string (The detailed justification in English)\",\n\"applicant_metadata\": {\n\"name\": \"string\",\n\"age\": number,\n\"loan_amount\": number,\n\"income\": number,\n\"employment_tenure_months\": number\n},\n\"flags_detected\": boolean\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        752,
+        -96
+      ],
+      "id": "8a68d459-28ec-4e18-91ab-e0a55829cb87",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Gmail Trigger').item.json.id }}",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        768,
+        96
+      ],
+      "id": "a739e719-3649-4245-946d-2a88b5fda487",
+      "name": "Buffer Memory"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        656,
+        48
+      ],
+      "id": "ea05ba37-1bd8-4a46-8970-0171bc330a1a",
+      "name": "OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "ZyRHTepJZdTVwk4Q",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "=attachment_0",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        448,
+        -96
+      ],
+      "id": "66c91546-9bb2-436e-9d77-4f8cabd2a05d",
+      "name": "Extract File"
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "message": "=<div style=\"font-family: Arial, sans-serif; color: #333; max-width: 600px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px;\">\n  <h2 style=\"color: #2e7d32;\">Loan Application Approved!</h2>\n  <p>Dear Applicant,</p>\n  <p>We are pleased to inform you that your credit application has been <b>automatically approved</b> after successfully passing our initial verification process.</p>\n  \n  <div style=\"background-color: #f9f9f9; padding: 15px; border-left: 4px solid #2e7d32; margin: 20px 0;\">\n    <strong>Status:</strong> Approved <br>\n    <strong>Next Steps:</strong> Our financial team will contact you within 24 hours to finalize the disbursement.\n  </div>\n  \n  <p>Thank you for choosing <b>FastCredit</b>.</p>\n  <hr style=\"border: 0; border-top: 1px solid #eee;\">\n  <p style=\"font-size: 12px; color: #888;\">This is an automated message. Please do not reply directly to this email.</p>\n</div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1632,
+        -240
+      ],
+      "id": "15e2d200-61e8-4f87-9ee5-f00d67224976",
+      "name": "Send Approval Email",
+      "webhookId": "d85ab700-a944-4e6b-a396-91db21e35f54",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "e2LIOY5YBW7ORXYz",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "message": "=<div style=\"font-family: Arial, sans-serif; color: #333; max-width: 600px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px;\">\n  <h2 style=\"color: #1565c0;\">Application Update: Manual Review</h2>\n  <p>Dear Applicant,</p>\n  <p>Thank you for your interest in FastCredit. Your application has been received and is currently being <b>reviewed by our underwriting team</b>.</p>\n  \n  <div style=\"background-color: #f9f9f9; padding: 15px; border-left: 4px solid #1565c0; margin: 20px 0;\">\n    <strong>Status:</strong> Pending Manual Review <br>\n    <strong>Reason:</strong> Your request requires additional verification by a specialist.\n  </div>\n  \n  <p>No further action is required from your side. We will provide a final update within 2 business days.</p>\n  \n  <p>Best regards,<br>The FastCredit Team</p>\n  <hr style=\"border: 0; border-top: 1px solid #eee;\">\n  <p style=\"font-size: 12px; color: #888;\">This is an automated notification regarding your recent credit request.</p>\n</div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2048,
+        -80
+      ],
+      "id": "2575b067-9d16-423c-b889-7327f83da6e4",
+      "name": "Send Review Notification",
+      "webhookId": "468b8ce9-8d6a-46a0-82dc-d290dbed1204",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "e2LIOY5YBW7ORXYz",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "\"Use this tool to retrieve official internal credit policies, lending requirements, and manual approval rules. Use it whenever you need to verify if an applicant meets the criteria for age, income ratio, or employment stability",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "documentos_pdf",
+          "mode": "list",
+          "cachedResultName": "documentos_pdf"
+        },
+        "topK": 5,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        864,
+        224
+      ],
+      "id": "243f29e1-5423-4ebb-99ef-7fc8ae2cedc5",
+      "name": "Qdrant Vector Store",
+      "credentials": {
+        "qdrantApi": {
+          "id": "Vj2uyrhpDqQPAr5S",
+          "name": "QdrantApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        864,
+        400
+      ],
+      "id": "4cab243e-bbb2-4133-9323-5313a484cd88",
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "ZyRHTepJZdTVwk4Q",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"status\": {\n      \"type\": \"string\",\n      \"enum\": [\"APPROVED\", \"FLAGGED_FOR_REVIEW\",\"MISSING_DATA\"],\n      \"description\": \"The final decision based on internal policies.\"\n    },\n    \"full_analysis\": {\n      \"type\": \"string\",\n      \"description\": \"A detailed explanation of why the application was approved or flagged, mentioning specific policy matches or violations.\"\n    },\n    \"applicant_metadata\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"name\": {\n          \"type\": \"string\",\n          \"description\": \"Full name of the applicant.\"\n        },\n        \"age\": {\n          \"type\": \"integer\",\n          \"description\": \"Age of the applicant in years.\"\n        },\n        \"loan_amount\": {\n          \"type\": \"number\",\n          \"description\": \"The total loan amount requested.\"\n        },\n        \"income\": {\n          \"type\": \"number\",\n          \"description\": \"Monthly gross income of the applicant.\"\n        },\n        \"employment_tenure_months\": {\n          \"type\": \"integer\",\n          \"description\": \"Total months at the current job.\"\n        }\n      },\n      \"required\": [\"name\", \"age\", \"loan_amount\", \"income\", \"employment_tenure_months\"]\n    },\n    \"flags_detected\": {\n      \"type\": \"boolean\",\n      \"description\": \"True if any risk flags (high debt, high amount) were triggered.\"\n    }\n  },\n  \"required\": [\"status\", \"full_analysis\", \"applicant_metadata\", \"flags_detected\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1024,
+        80
+      ],
+      "id": "0b0a1ef7-1210-4444-9e2d-4a9c9ffd6938",
+      "name": "Structured Output"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.status }}",
+                    "rightValue": "APPROVED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "38554823-0f30-41dd-a6fa-d1b9cd2c08f4"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "APPROVED"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0e332277-1aa8-465c-9f61-8e08f5480028",
+                    "leftValue": "={{ $json.output.status }}",
+                    "rightValue": "FLAGGED_FOR_REVIEW",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "FLAGGED_FOR_REVIEW"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ea256225-669a-40ca-896a-644deaf116e6",
+                    "leftValue": "={{ $json.output.status }}",
+                    "rightValue": "MISSING_DATA",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "MISSING_DATA"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1152,
+        -112
+      ],
+      "id": "e3555420-1468-410d-90c3-4c03c0f43716",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "message": "=<div style=\"font-family: Arial, sans-serif; color: #333; max-width: 600px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px;\">\n  <h2 style=\"color: #d32f2f;\">Action Required: Incomplete Application</h2>\n  <p>Hello {{ $json.output.applicant_metadata.name }},</p>\n  <p>Our automated system could not process your credit request because some information is missing or unclear in the document provided.</p>\n  \n  <div style=\"background-color: #ffebee; padding: 15px; border-left: 4px solid #d32f2f; margin: 20px 0;\">\n    <strong>Reason:</strong> {{ $json.output.full_analysis }}\n  </div>\n  \n  <p>Please resubmit your application with all fields clearly visible so we can provide you with a decision immediately.</p>\n  <p>Best regards,<br><b>FastCredit Automation Team</b></p>\n</div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1392,
+        112
+      ],
+      "id": "22243ebe-68f8-4d22-8daf-fe17ba894528",
+      "name": "Reply to a message",
+      "webhookId": "9c62fbe7-d50b-4125-9405-2f319f38b3ea",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "e2LIOY5YBW7ORXYz",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "team": "9017861117",
+        "space": "90174513261",
+        "folderless": true,
+        "list": "901711574540",
+        "name": "=Review Loan Application: {{ $json.output.applicant_metadata.name }}",
+        "additionalFields": {
+          "assignees": [
+            95327607
+          ],
+          "content": "=Decision: Flagged for Manual Review\nContact: {{ $('Gmail Trigger').item.json.from.value[0].address }}\nIncome: {{ $json.output.applicant_metadata.income }}\nLoan Requested: {{ $json.output.applicant_metadata.loan_amount }}\nTenure: {{ $json.output.applicant_metadata.employment_tenure_months }} months.\n\nReason (AI): {{ $json.output.full_analysis }}\n\n\n",
+          "status": "to do"
+        }
+      },
+      "type": "n8n-nodes-base.clickUp",
+      "typeVersion": 1,
+      "position": [
+        1632,
+        -80
+      ],
+      "id": "38e0a6f0-ea7d-44da-bbc9-0d2be9a92c41",
+      "name": "Create a task",
+      "credentials": {
+        "clickUpApi": {
+          "id": "tmcIQSdcn6NB4eAG",
+          "name": "ClickUp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ed270635-21a9-4aa4-9f55-5d5cb544c270",
+              "leftValue": "={{ $json.subject }}",
+              "rightValue": "/(Loan Application|Credit Request)/i",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "id": "e1fd39fa-7cf6-4eff-97e2-37fbd20d8e13",
+              "leftValue": "={{ $binary.attachment_0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        224,
+        0
+      ],
+      "id": "8804b696-2a2e-4a6a-9cb0-415b02662ef4",
+      "name": "Contains Attachment"
+    },
+    {
+      "parameters": {
+        "inputDataFieldName": "={{ $('Contains Attachment').item.binary.attachment_0 }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1jVnVnF81oSv727m-iZ4QsBUVf3vc807C",
+          "mode": "list",
+          "cachedResultName": "kcoto_test",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1jVnVnF81oSv727m-iZ4QsBUVf3vc807C"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1392,
+        -240
+      ],
+      "id": "4bea1cd9-98b6-4b00-933e-2e4bc968155d",
+      "name": "Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "qEJ6fMchSCibOgnq",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1pTnw0BvMnB7eDFUcFFTg7lfebIxQt71fyI2hSMDz18s",
+          "mode": "list",
+          "cachedResultName": "BD_TestTask",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1pTnw0BvMnB7eDFUcFFTg7lfebIxQt71fyI2hSMDz18s/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Hoja 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1pTnw0BvMnB7eDFUcFFTg7lfebIxQt71fyI2hSMDz18s/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "={{ $('Switch').item.json.output.status }}",
+            "Client Name": "={{ $('Switch').item.json.output.applicant_metadata.name }}",
+            "Income": "={{ $('Switch').item.json.output.applicant_metadata.income }}",
+            "Load Amount": "={{ $('Switch').item.json.output.applicant_metadata.loan_amount }}",
+            "Analisys": "={{ $('Switch').item.json.output.full_analysis }}",
+            "Employment Months": "={{ $('Switch').item.json.output.applicant_metadata.employment_tenure_months }}",
+            "Email": "={{ $('Gmail Trigger').item.json.from.value[0].address }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Client Name",
+              "displayName": "Client Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Income",
+              "displayName": "Income",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Load Amount",
+              "displayName": "Load Amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Employment Months",
+              "displayName": "Employment Months",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Analisys",
+              "displayName": "Analisys",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1840,
+        -240
+      ],
+      "id": "675d9b60-623e-4984-8b5f-18e15de58592",
+      "name": "Append row",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "KT7ca0feXqOFWtJ7",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1pTnw0BvMnB7eDFUcFFTg7lfebIxQt71fyI2hSMDz18s",
+          "mode": "list",
+          "cachedResultName": "BD_TestTask",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1pTnw0BvMnB7eDFUcFFTg7lfebIxQt71fyI2hSMDz18s/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Hoja 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1pTnw0BvMnB7eDFUcFFTg7lfebIxQt71fyI2hSMDz18s/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "={{ $('Switch').item.json.output.status }}",
+            "Client Name": "={{ $('Switch').item.json.output.applicant_metadata.name }}",
+            "Income": "={{ $('Switch').item.json.output.applicant_metadata.income }}",
+            "Load Amount": "={{ $('Switch').item.json.output.applicant_metadata.loan_amount }}",
+            "Analisys": "={{ $('Switch').item.json.output.full_analysis }}",
+            "Employment Months": "={{ $('Switch').item.json.output.applicant_metadata.employment_tenure_months }}",
+            "Email": "={{ $('Gmail Trigger').item.json.from.value[0].address }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Client Name",
+              "displayName": "Client Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Income",
+              "displayName": "Income",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Load Amount",
+              "displayName": "Load Amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Employment Months",
+              "displayName": "Employment Months",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Analisys",
+              "displayName": "Analisys",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1840,
+        -80
+      ],
+      "id": "b3a9acdd-ce25-4c9b-a8e4-ffeaf951a498",
+      "name": "Append row review",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "KT7ca0feXqOFWtJ7",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputDataFieldName": "={{ $('Contains Attachment').item.binary.attachment_0 }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1jVnVnF81oSv727m-iZ4QsBUVf3vc807C",
+          "mode": "list",
+          "cachedResultName": "kcoto_test",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1jVnVnF81oSv727m-iZ4QsBUVf3vc807C"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1392,
+        -80
+      ],
+      "id": "190fc873-90b9-460f-b2b2-242915310566",
+      "name": "Upload file Review",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "qEJ6fMchSCibOgnq",
+          "name": "Google Drive account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Contains Attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract File": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Upload file Review",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply to a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a task": {
+      "main": [
+        [
+          {
+            "node": "Append row review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contains Attachment": {
+      "main": [
+        [
+          {
+            "node": "Extract File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply Missing Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Approval Email": {
+      "main": [
+        [
+          {
+            "node": "Append row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file": {
+      "main": [
+        [
+          {
+            "node": "Send Approval Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row review": {
+      "main": [
+        [
+          {
+            "node": "Send Review Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file Review": {
+      "main": [
+        [
+          {
+            "node": "Create a task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "51806c1f-aa15-4e73-a9ec-ecba4a56158d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "91bcd481e553c8cb21a047d2cd1f2156429b3a07bc28968771b288e6fb98b013"
+  },
+  "id": "qFq1ZVrPtJw21c-18jTNZ",
+  "tags": [
+    {
+      "updatedAt": "2026-02-26T21:26:18.709Z",
+      "createdAt": "2026-02-26T21:26:18.709Z",
+      "id": "RVJMBzmmn9spmOJ0",
+      "name": "main"
+    }
+  ]
+}

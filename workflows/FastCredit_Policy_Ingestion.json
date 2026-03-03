@@ -1,0 +1,216 @@
+{
+  "name": "FastCredit_Policy_Ingestion",
+  "nodes": [
+    {
+      "parameters": {
+        "model": "text-embedding-3-small",
+        "options": {}
+      },
+      "id": "0315db0c-183c-4f0d-b649-097f0ca3d9e7",
+      "name": "OpenAI Embeddings",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1,
+      "position": [
+        768,
+        80
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "ZyRHTepJZdTVwk4Q",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "Archivo_PDF",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        512,
+        -144
+      ],
+      "id": "bc5d0dbe-d176-4c69-b037-98ca2c7260de",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "={{ $('Form Trigger - Upload PDF').item.json['Collection Name (Optional)'] }}",
+          "mode": "expression"
+        },
+        "options": {}
+      },
+      "id": "d596ec5d-f8b1-4657-9a80-e31eeb866caa",
+      "name": "Save on Qdrant",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1,
+      "position": [
+        848,
+        -144
+      ],
+      "credentials": {
+        "qdrantApi": {
+          "id": "Vj2uyrhpDqQPAr5S",
+          "name": "QdrantApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $('Extract from File').item.json.text }}",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "=FileName",
+                "value": "={{ $('Form Trigger - Upload PDF').item.json['Archivo PDF'][0].filename }}"
+              },
+              {
+                "name": "UploadedAt",
+                "value": "={{ $('Form Trigger - Upload PDF').item.json.submittedAt }}"
+              },
+              {
+                "name": "NumberofPages",
+                "value": "={{ $('Extract from File').item.json.numpages }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "78a2c23a-39da-460d-8c4c-3521942305b9",
+      "name": "Extract Text from PDF",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "chunkSize": 500,
+        "chunkOverlap": 50,
+        "options": {}
+      },
+      "id": "21abeae1-3e30-48e6-b56b-3d9e4885aebd",
+      "name": "Chunks splitter",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "formTitle": "Upload Files ",
+        "formDescription": "Upload a PDF file to vectorize it and store it in the database.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Archivo PDF",
+              "fieldType": "file",
+              "acceptFileTypes": ".pdf",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Collection Name (Optional)",
+              "placeholder": "documents_pdf"
+            }
+          ]
+        },
+        "options": {
+          "respondWithOptions": {
+            "values": {}
+          }
+        }
+      },
+      "id": "1940215d-f97c-4177-85e2-9910a346ff0b",
+      "name": "Form Trigger - Upload PDF",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        160,
+        -144
+      ],
+      "webhookId": "eec19fcb-113f-4aee-8ae1-a3fcf372d88e"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "OpenAI Embeddings": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Save on Qdrant",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Save on Qdrant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Text from PDF": {
+      "ai_document": [
+        [
+          {
+            "node": "Save on Qdrant",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chunks splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Extract Text from PDF",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form Trigger - Upload PDF": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "add73844-4ded-4457-b974-85f157ede6af",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "91bcd481e553c8cb21a047d2cd1f2156429b3a07bc28968771b288e6fb98b013"
+  },
+  "id": "WdaL93c2HxVvdjY87SCKo",
+  "tags": []
+}
