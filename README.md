@@ -2,6 +2,11 @@
 
 This repository contains an automated system designed to process loan applications from email intake to final decisioning. The agent uses **RAG (Retrieval-Augmented Generation)** to ensure all decisions align with internal company policies stored in a **Qdrant** vector database.
 
+You can watch the full walkthrough and technical explanation here:
+**[Link to Video: FastCredit Demo](https://youtu.be/1Jr_Fqx5ONA?si=iltn6kOm__3JU88- )**
+
+> **Quick Access:** If you want to skip the technical setup and go directly to the **3 live examples** (Approved, Flagged, and Missing Data), please jump to **[3:34](https://youtu.be/1Jr_Fqx5ONA?si=FrvcgTLH9H9AaBSM&t=214)**.
+
 ## 🛠️ The Architecture
 
 The system is divided into two main workflows to ensure scalability and clean data management:

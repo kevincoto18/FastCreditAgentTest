@@ -1,5 +1,5 @@
 {
-  "name": "FastCredit_Agent",
+  "name": "FastCredit Workflow",
   "nodes": [
     {
       "parameters": {
@@ -62,7 +62,7 @@
         "text": "={{ $json.text }}",
         "hasOutputParser": true,
         "options": {
-          "systemMessage": "=You are the FastCredit Lending Officer. Your goal is to process loan applications with 100% accuracy.\n\nPROCESS:\n\nExtract applicant data from the input.\n\nRetrieve \"Internal Lending Policies\" using the 'policy_retriever' tool.\n\nCompare data against policies:\n\nAge >= 18.\n\nEmployment >= 12 months.\n\nLoan <= 3x Monthly Income.\n\nFlags: Loan > $15,000 or existing debts.\n\nDecision: 'APPROVED' if all rules are met. 'FLAGGED_FOR_REVIEW' if flags are triggered or data is ambiguous.\n\n5. Set status to 'MISSING_DATA' if the extracted information is incomplete, key fields (income, age, employment) are missing from the PDF, or the document content is not a loan application.\n6. Provide a concise English justification explaining exactly what data is missing.\n\nOUTPUT FORMAT:\nYou must respond ONLY with a valid JSON object. Do not include conversational text outside the JSON.\n\nJSON Schema:\n{\n\"status\": \"APPROVED\" | \"FLAGGED_FOR_REVIEW\",\n\"full_analysis\": \"string (The detailed justification in English)\",\n\"applicant_metadata\": {\n\"name\": \"string\",\n\"age\": number,\n\"loan_amount\": number,\n\"income\": number,\n\"employment_tenure_months\": number\n},\n\"flags_detected\": boolean\n}"
+          "systemMessage": "=You are the FastCredit Lending Officer. Your goal is to process loan applications with 100% accuracy using internal company regulations.\n\nCORE MISSION:\nYou must validate applicant data strictly against the \"Internal Lending Policies\" retrieved from the vector store. Do not rely on general financial knowledge; only use the rules found in the provided documentation.\n\nPROCESS:\n\nExtract applicant data from the input document (Name, Age, Income, Loan Amount, Employment Tenure, and Debts).\n\nRetrieve the latest \"Internal Lending Policies\" using the policy_retriever tool.\n\nIdentify the Policy ID within the retrieved text to ensure the correct framework is being applied.\n\nCompare data against the retrieved rules:\n\nAge: Must meet the minimum age requirement.\n\nEmployment: Must meet the minimum continuous employment months.\n\nIncome Ratio: Loan amount must be within the allowed multiple of monthly income.\n\nFlags: Identify if the loan exceeds the high-risk threshold or if existing debts require manual review.\n\nDetermine Status:\n\nAPPROVED: If all hard rules are met and NO flags are triggered.\n\nFLAGGED_FOR_REVIEW: If rules are met but a flag (High Amount/Existing Debt) is triggered, or if data is ambiguous.\n\nMISSING_DATA: If key fields (income, amount, employment) are missing or the document is not a loan application.\n\nOUTPUT FORMAT:\nRespond ONLY with a valid JSON object.\n\nJSON Schema:\n{\n\"status\": \"APPROVED\" | \"FLAGGED_FOR_REVIEW\" | \"MISSING_DATA\",\n\"policy_reference\": \"string (The Policy ID found in the retrieved document)\",\n\"full_analysis\": \"string (Concise English justification citing specific policy values)\",\n\"applicant_metadata\": {\n\"name\": \"string\",\n\"age\": number,\n\"loan_amount\": number,\n\"income\": number,\n\"employment_tenure_months\": number\n},\n\"flags_detected\": boolean\n}"
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
@@ -181,9 +181,9 @@
         "toolDescription": "\"Use this tool to retrieve official internal credit policies, lending requirements, and manual approval rules. Use it whenever you need to verify if an applicant meets the criteria for age, income ratio, or employment stability",
         "qdrantCollection": {
           "__rl": true,
-          "value": "documentos_pdf",
+          "value": "fastcredit_policies",
           "mode": "list",
-          "cachedResultName": "documentos_pdf"
+          "cachedResultName": "fastcredit_policies"
         },
         "topK": 5,
         "options": {}
@@ -225,7 +225,7 @@
     {
       "parameters": {
         "schemaType": "manual",
-        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"status\": {\n      \"type\": \"string\",\n      \"enum\": [\"APPROVED\", \"FLAGGED_FOR_REVIEW\",\"MISSING_DATA\"],\n      \"description\": \"The final decision based on internal policies.\"\n    },\n    \"full_analysis\": {\n      \"type\": \"string\",\n      \"description\": \"A detailed explanation of why the application was approved or flagged, mentioning specific policy matches or violations.\"\n    },\n    \"applicant_metadata\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"name\": {\n          \"type\": \"string\",\n          \"description\": \"Full name of the applicant.\"\n        },\n        \"age\": {\n          \"type\": \"integer\",\n          \"description\": \"Age of the applicant in years.\"\n        },\n        \"loan_amount\": {\n          \"type\": \"number\",\n          \"description\": \"The total loan amount requested.\"\n        },\n        \"income\": {\n          \"type\": \"number\",\n          \"description\": \"Monthly gross income of the applicant.\"\n        },\n        \"employment_tenure_months\": {\n          \"type\": \"integer\",\n          \"description\": \"Total months at the current job.\"\n        }\n      },\n      \"required\": [\"name\", \"age\", \"loan_amount\", \"income\", \"employment_tenure_months\"]\n    },\n    \"flags_detected\": {\n      \"type\": \"boolean\",\n      \"description\": \"True if any risk flags (high debt, high amount) were triggered.\"\n    }\n  },\n  \"required\": [\"status\", \"full_analysis\", \"applicant_metadata\", \"flags_detected\"]\n}"
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"status\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"APPROVED\",\n        \"FLAGGED_FOR_REVIEW\",\n        \"MISSING_DATA\"\n      ],\n      \"description\": \"The final decision based on internal policies. APPROVED if all rules pass, FLAGGED_FOR_REVIEW if flags are triggered, and MISSING_DATA if information is incomplete.\"\n    },\n    \"policy_reference\": {\n      \"type\": \"string\",\n      \"description\": \"The specific Policy ID found in the retrieved document (e.g., POL-2024-001). This proves the agent consulted the manual.\"\n    },\n    \"full_analysis\": {\n      \"type\": \"string\",\n      \"description\": \"A detailed explanation of why the application was approved or flagged, mentioning specific policy matches or violations found in the retrieved documentation.\"\n    },\n    \"applicant_metadata\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"name\": {\n          \"type\": \"string\",\n          \"description\": \"Full name of the applicant.\"\n        },\n        \"age\": {\n          \"type\": \"integer\",\n          \"description\": \"Age of the applicant in years.\"\n        },\n        \"loan_amount\": {\n          \"type\": \"number\",\n          \"description\": \"The total loan amount requested.\"\n        },\n        \"income\": {\n          \"type\": \"number\",\n          \"description\": \"Monthly gross income of the applicant.\"\n        },\n        \"employment_tenure_months\": {\n          \"type\": \"integer\",\n          \"description\": \"Total months at the current job.\"\n        }\n      },\n      \"required\": [\n        \"name\",\n        \"age\",\n        \"loan_amount\",\n        \"income\",\n        \"employment_tenure_months\"\n      ]\n    },\n    \"flags_detected\": {\n      \"type\": \"boolean\",\n      \"description\": \"True if any risk flags (high debt, high amount) were triggered according to the policy.\"\n    }\n  },\n  \"required\": [\n    \"status\",\n    \"policy_reference\",\n    \"full_analysis\",\n    \"applicant_metadata\",\n    \"flags_detected\"\n  ]\n}"
       },
       "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
       "typeVersion": 1.3,
@@ -356,12 +356,13 @@
         "space": "90174513261",
         "folderless": true,
         "list": "901711574540",
-        "name": "=Review Loan Application: {{ $json.output.applicant_metadata.name }}",
+        "name": "=Review Loan Application: {{ $('Switch').item.json.output.applicant_metadata.name }}",
         "additionalFields": {
           "assignees": [
             95327607
           ],
-          "content": "=Decision: Flagged for Manual Review\nContact: {{ $('Gmail Trigger').item.json.from.value[0].address }}\nIncome: {{ $json.output.applicant_metadata.income }}\nLoan Requested: {{ $json.output.applicant_metadata.loan_amount }}\nTenure: {{ $json.output.applicant_metadata.employment_tenure_months }} months.\n\nReason (AI): {{ $json.output.full_analysis }}\n\n\n",
+          "content": "=Decision: Flagged for Manual Review\nContact: {{ $('Gmail Trigger').item.json.from.value[0].address }}\nIncome: {{ $('Switch').item.json.output.applicant_metadata.income }}\nLoan Requested: {{ $('Switch').item.json.output.applicant_metadata.loan_amount }}\nTenure: {{ $('Switch').item.json.output.applicant_metadata.employment_tenure_months }} months.\nPolicy Reference: {{ $('Switch').item.json.output.policy_reference }}\n\nReason (AI): {{ $('Switch').item.json.output.full_analysis }}\n\nDrive Link: {{ $json.webViewLink }}\n\n\n",
+          "priority": 2,
           "status": "to do"
         }
       },
@@ -924,7 +925,7 @@
     "executionOrder": "v1",
     "availableInMCP": false
   },
-  "versionId": "51806c1f-aa15-4e73-a9ec-ecba4a56158d",
+  "versionId": "806257f4-8972-4037-b30e-4cd06b143e58",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "91bcd481e553c8cb21a047d2cd1f2156429b3a07bc28968771b288e6fb98b013"
